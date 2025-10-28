@@ -1,0 +1,1161 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="viewport-width, initial-scale=1.0">
+    <title>لعبة الرسم والتصويت الجماعية</title>
+    <!-- تحميل Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- تحميل خط Inter -->
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght[400;600;700]&display=swap" rel="stylesheet">
+    <style>
+        /* إعدادات الخط الأساسية والاتجاه */
+        body {
+            font-family: 'Inter', sans-serif;
+            background-color: #f3f4f6; /* رمادي فاتح للخلفية */
+        }
+        /* تصميم لوحة الرسم */
+        #drawingCanvas {
+            cursor: crosshair;
+            touch-action: none; /* لمنع التمرير عند الرسم باللمس */
+            background-color: white;
+            border: 2px solid #3b82f6; /* حدود زرقاء */
+        }
+        /* مؤشر التحميل */
+        .loader {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #3b82f6;
+            border-radius: 50%;
+            width: 30px;
+            height: 30px;
+            animation: spin 1s linear infinite;
+            margin: auto; /* لتوسيطه */
+        }
+        .loader.w-4 {
+            width: 1rem;
+            height: 1rem;
+            border-width: 3px;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        /* تصميم زر TTS لجعله مميزاً */
+        #readCritiqueButton {
+            background-color: #f97316; /* برتقالي */
+            color: white;
+            transition: all 0.2s;
+        }
+        #readCritiqueButton:hover {
+            background-color: #ea580c;
+            transform: translateY(-1px);
+        }
+        /* تصميم زر التفسير البصري */
+        #visualInterpretationButton {
+            background-color: #a21caf; /* بنفسجي غامق */
+            color: white;
+            transition: all 0.2s;
+        }
+        #visualInterpretationButton:hover {
+            background-color: #86198f;
+            transform: translateY(-1px);
+        }
+        /* تصميم زر تسمية العمل الفني */
+        #nameArtButton {
+            background-color: #10b981; /* أخضر زمردي */
+            color: white;
+            transition: all 0.2s;
+        }
+        #nameArtButton:hover {
+            background-color: #059669;
+            transform: translateY(-1px);
+        }
+    </style>
+</head>
+<body class="p-4 sm:p-8">
+
+    <div id="app" class="max-w-4xl mx-auto bg-white shadow-2xl rounded-xl p-6 md:p-10">
+        <h1 class="text-3xl font-bold text-center text-gray-800 mb-6">🎨 لعبة الرسم والتصويت الجماعية</h1>
+        
+        <div id="authStatus" class="text-sm text-center text-gray-600 mb-4">يتم إعداد التطبيق...</div>
+        <div id="userIdDisplay" class="text-xs text-center text-gray-500 mb-6 bg-gray-100 p-2 rounded-lg">
+            هويتك كلاعب (شاركها مع أصدقائك): <span id="currentUserId" class="font-mono text-blue-600 font-bold">...</span>
+        </div>
+
+        <!-- شاشات اللعبة -->
+        <div id="gameScreens" class="space-y-8">
+            
+            <!-- لوحة الرسم -->
+            <div id="drawingSection" class="border p-4 rounded-lg shadow-inner bg-blue-50">
+                <h2 class="text-xl font-semibold text-blue-700 mb-4">مرحلة 1: ارسم</h2>
+                
+                <!-- ميزة Gemini لتوليد الأفكار (1) -->
+                <div class="flex flex-col sm:flex-row space-y-3 sm:space-y-0 sm:space-x-4 mb-4 rtl:sm:space-x-reverse items-center">
+                    <button id="generatePrompt" class="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-3 px-6 rounded-lg shadow transition duration-200 text-sm flex items-center justify-center whitespace-nowrap disabled:opacity-50">
+                        <span class="mr-2">✨</span> توليد فكرة رسم (Gemini AI)
+                    </button>
+                    <div id="promptOutput" class="flex-grow p-3 bg-indigo-100 border border-indigo-300 rounded-lg text-indigo-800 text-center font-semibold text-sm">
+                        اضغط لتوليد فكرة!
+                    </div>
+                </div>
+
+                <div class="flex items-center space-x-4 mb-4 rtl:space-x-reverse">
+                    <label for="colorPicker" class="font-medium text-gray-700">لون القلم:</label>
+                    <input type="color" id="colorPicker" value="#000000" class="w-8 h-8 rounded-full border-none p-0 cursor-pointer">
+                    <label for="lineWidth" class="font-medium text-gray-700">حجم القلم:</label>
+                    <input type="range" id="lineWidth" min="1" max="20" value="5" class="w-20">
+                    <button id="clearCanvas" class="bg-red-500 hover:bg-red-600 text-white font-bold py-2 px-4 rounded-lg shadow transition duration-200 text-sm">مسح اللوحة</button>
+                </div>
+                <!-- Canvas يتم إنشاؤه بواسطة JavaScript -->
+                <canvas id="drawingCanvas" class="w-full aspect-video rounded-lg shadow-lg"></canvas>
+
+                <div class="mt-4 flex flex-col sm:flex-row space-y-3 sm:space-y-0 sm:space-x-4 rtl:sm:space-x-reverse">
+                    <input type="text" id="drawingDescription" placeholder="ماذا رسمت؟ أو الفكرة التي ولدتها" class="flex-grow p-3 border border-gray-300 rounded-lg focus:ring-blue-500 focus:border-blue-500">
+                    <button id="submitDrawing" class="bg-green-500 hover:bg-green-600 text-white font-bold py-3 px-6 rounded-lg shadow transition duration-200 whitespace-nowrap disabled:opacity-50" disabled>إرسال الرسم للمنافسة</button>
+                </div>
+            </div>
+
+            <!-- لوحة التصويت -->
+            <div id="votingSection" class="border p-4 rounded-lg shadow-inner bg-purple-50">
+                <h2 class="text-xl font-semibold text-purple-700 mb-4">مرحلة 2: تصويت</h2>
+                <div id="votingContent" class="text-center">
+                    <div id="latestDrawing" class="mb-4">
+                        <!-- عرض الصورة الحديثة هنا -->
+                        <p class="text-gray-500 mb-3">انتظر رسماً جديداً من أي لاعب...</p>
+                    </div>
+                    
+                    <!-- منطقة عرض نقد Gemini -->
+                    <div id="critiqueArea" class="mt-4 p-3 bg-red-100 border border-red-300 rounded-lg hidden text-right">
+                        <p id="critiqueText" class="text-red-800 text-sm italic font-medium">...</p>
+                        <!-- ميزة القراءة الصوتية (4) -->
+                        <button id="readCritiqueButton" class="mt-2 text-white font-bold py-1 px-3 rounded-lg shadow-md transition duration-200 text-xs flex items-center disabled:opacity-50">
+                             🔊 قراءة النقد بصوت (TTS)
+                        </button>
+                    </div>
+                    
+                    <!-- منطقة عرض التسمية الفنية الجديدة (6) -->
+                    <div id="newTitleArea" class="mt-4 p-3 bg-blue-100 border border-blue-300 rounded-lg hidden text-right">
+                        <p id="newTitleText" class="text-blue-800 text-sm italic font-medium">...</p>
+                    </div>
+
+
+                    <!-- منطقة عرض النقد البصري (5) -->
+                    <div id="visualInterpretationArea" class="mt-4 p-3 bg-fuchsia-100 border border-fuchsia-300 rounded-lg hidden text-center">
+                        <p class="text-fuchsia-800 text-sm font-medium mb-3">التفسير البصري للنقد (Gemini Image):</p>
+                        <div id="visualInterpretationImageContainer" class="flex justify-center">
+                            <!-- الصورة المولدة هنا -->
+                        </div>
+                    </div>
+
+                    <!-- منطقة عرض الشرح المعمق (3) -->
+                    <div id="deepDiveArea" class="mt-4 p-3 bg-teal-100 border border-teal-300 rounded-lg hidden text-right">
+                        <p id="deepDiveText" class="text-teal-800 text-sm font-medium">...</p>
+                        <div id="deepDiveSources" class="text-xs mt-2 text-teal-600"></div>
+                    </div>
+
+                    <div class="flex flex-wrap gap-3 justify-center mt-4">
+                        <button id="voteButton" class="bg-purple-600 hover:bg-purple-700 text-white font-bold py-3 px-8 rounded-lg shadow-md transition duration-200 disabled:opacity-30">
+                            <span id="voteText">التصويت للرسم أعلاه</span>
+                        </button>
+                        <button id="critiqueButton" class="bg-red-500 hover:bg-red-600 text-white font-bold py-3 px-6 rounded-lg shadow-md transition duration-200 disabled:opacity-30 text-sm flex items-center justify-center">
+                            <span class="mr-2">✨</span> تحليل الرسم (Gemini AI)
+                        </button>
+                        <button id="nameArtButton" class="bg-emerald-500 hover:bg-emerald-600 text-white font-bold py-3 px-6 rounded-lg shadow-md transition duration-200 disabled:opacity-30 text-sm flex items-center justify-center">
+                            <span class="mr-2">✨</span> تسمية العمل الفني (Gemini AI)
+                        </button>
+                        <button id="deepDiveButton" class="bg-teal-500 hover:bg-teal-600 text-white font-bold py-3 px-6 rounded-lg shadow-md transition duration-200 disabled:opacity-30 text-sm flex items-center justify-center">
+                            <span class="mr-2">✨</span> شرح فكرة الرسم (Gemini AI)
+                        </button>
+                        <button id="visualInterpretationButton" class="bg-fuchsia-600 hover:bg-fuchsia-700 text-white font-bold py-3 px-6 rounded-lg shadow-md transition duration-200 disabled:opacity-30 text-sm flex items-center justify-center">
+                            <span class="mr-2">✨</span> تفسير بصري للنقد (Gemini Image)
+                        </button>
+                    </div>
+                </div>
+            </div>
+            
+            <!-- لوحة النتائج -->
+            <div id="resultsSection" class="border p-4 rounded-lg shadow-inner bg-yellow-50">
+                <h2 class="text-xl font-semibold text-yellow-700 mb-4">مرحلة 3: النتائج والترتيب</h2>
+                <div id="resultsList" class="space-y-3">
+                    <p class="text-gray-500">جاري تحميل النتائج من قاعدة البيانات...</p>
+                </div>
+                <button id="resetGameButton" class="mt-6 bg-red-600 hover:bg-red-700 text-white font-bold py-2 px-4 rounded-lg shadow transition duration-200 text-sm">إعادة تعيين اللعبة (للمشرف فقط)</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Firebase Imports -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-app.js";
+        import { getAuth, signInAnonymously, signInWithCustomToken, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-auth.js";
+        import { 
+            getFirestore, doc, setDoc, onSnapshot, collection, query, updateDoc, increment, getDocs, deleteDoc, getDoc 
+        } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+        import { setLogLevel } from "https://www.gstatic.com/firebasejs/11.6.1/firebase-firestore.js";
+
+        // إعداد مستوى سجل قاعدة البيانات (للتصحيح/Debugging)
+        setLogLevel('debug');
+
+        // متغيرات Firebase الأساسية (يتم توفيرها من البيئة)
+        const appId = typeof __app_id !== 'undefined' ? __app_id : 'default-app-id';
+        const firebaseConfig = typeof __firebase_config !== 'undefined' ? JSON.parse(__firebase_config) : null;
+        const initialAuthToken = typeof __initial_auth_token !== 'undefined' ? __initial_auth_token : null;
+
+        // متغيرات Gemini API
+        const geminiApiKey = ""; // سيتم توفيره تلقائياً في بيئة Canvas
+        // Text/Multimodal/Grounding Model
+        const geminiContentModel = "gemini-2.5-flash-preview-09-2025";
+        const geminiContentApiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${geminiContentModel}:generateContent?key=${geminiApiKey}`;
+        // TTS Model
+        const geminiTtsModel = "gemini-2.5-flash-preview-tts";
+        const geminiTtsApiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${geminiTtsModel}:generateContent?key=${geminiApiKey}`;
+        // Image Generation Model
+        const geminiImageModel = "imagen-3.0-generate-002";
+        const geminiImageApiUrl = `https://generativelanguage.googleapis.com/v1beta/models/${geminiImageModel}:predict?key=${geminiApiKey}`;
+
+
+        let app, db, auth, userId = null;
+        let latestDrawingId = null; // لتخزين معرف الرسم الحالي للتصويت
+        let hasVoted = false; // لمنع التصويت المتعدد على نفس الرسم
+        let currentCritiqueText = ''; // لتخزين النقد لاستخدامه في توليد الصورة
+        let currentDrawingDataUrl = ''; // لتخزين URL الرسم الحالي لاستخدامه في توليد التسمية
+
+        //-----------------------------------------
+        // 1. تهيئة Firebase والمصادقة (Authentication)
+        //-----------------------------------------
+
+        // دالة تحويل Base64 إلى ArrayBuffer 
+        function base64ToArrayBuffer(base64) {
+            const binary_string = window.atob(base64);
+            const len = binary_string.length;
+            const bytes = new Uint8Array(len);
+            for (let i = 0; i < len; i++) {
+                bytes[i] = binary_string.charCodeAt(i);
+            }
+            return bytes.buffer;
+        }
+
+        // دالة تحويل PCM إلى WAV
+        function pcmToWav(pcm16, sampleRate) {
+            const buffer = new ArrayBuffer(44 + pcm16.length * 2);
+            const view = new DataView(buffer);
+
+            // وظيفة لكتابة السلاسل في DataView
+            function writeString(view, offset, string) {
+                for (let i = 0; i < string.length; i++) {
+                    view.setUint8(offset + i, string.charCodeAt(i));
+                }
+            }
+
+            // RIFF chunk descriptor
+            writeString(view, 0, 'RIFF'); // ChunkID
+            view.setUint32(4, 36 + pcm16.length * 2, true); // ChunkSize
+            writeString(view, 8, 'WAVE'); // Format
+
+            // fmt chunk
+            writeString(view, 12, 'fmt '); // Subchunk1ID
+            view.setUint32(16, 16, true); // Subchunk1Size (16 for PCM)
+            view.setUint16(20, 1, true); // AudioFormat (1 for PCM)
+            view.setUint16(22, 1, true); // NumChannels (Mono)
+            view.setUint32(24, sampleRate, true); // SampleRate
+            view.setUint32(28, sampleRate * 2, true); // ByteRate (SampleRate * NumChannels * BitsPerSample/8)
+            view.setUint16(32, 2, true); // BlockAlign (NumChannels * BitsPerSample/8)
+            view.setUint16(34, 16, true); // BitsPerSample
+
+            // data chunk
+            writeString(view, 36, 'data'); // Subchunk2ID
+            view.setUint32(40, pcm16.length * 2, true); // Subchunk2Size
+
+            // كتابة بيانات PCM
+            let offset = 44;
+            for (let i = 0; i < pcm16.length; i++) {
+                view.setInt16(offset, pcm16[i], true);
+                offset += 2;
+            }
+
+            return new Blob([buffer], { type: 'audio/wav' });
+        }
+        
+        // دالة تهيئة Firebase وتسجيل الدخول
+        async function initFirebase() {
+            if (!firebaseConfig) {
+                document.getElementById('authStatus').textContent = "خطأ: لم يتم العثور على إعدادات Firebase.";
+                return;
+            }
+
+            try {
+                app = initializeApp(firebaseConfig);
+                db = getFirestore(app);
+                auth = getAuth(app);
+
+                // الاستماع لتغييرات حالة المصادقة
+                onAuthStateChanged(auth, async (user) => {
+                    if (user) {
+                        userId = user.uid;
+                        document.getElementById('currentUserId').textContent = userId;
+                        document.getElementById('authStatus').textContent = "تم تسجيل الدخول بنجاح! جاهز للعب.";
+                        // تفعيل زر الإرسال بمجرد تسجيل الدخول
+                        document.getElementById('submitDrawing').disabled = false;
+                        
+                        // بدء الاستماع لبيانات اللعبة
+                        listenForLatestDrawing();
+                        listenForResults();
+                    } else {
+                        // محاولة تسجيل الدخول باستخدام الرمز المخصص أو كمجهول
+                        try {
+                            if (initialAuthToken) {
+                                await signInWithCustomToken(auth, initialAuthToken);
+                            } else {
+                                await signInAnonymously(auth);
+                            }
+                        } catch (error) {
+                            console.error("خطأ في تسجيل الدخول:", error);
+                            document.getElementById('authStatus').textContent = "خطأ في المصادقة. حاول تحديث الصفحة.";
+                        }
+                    }
+                });
+            } catch (error) {
+                console.error("خطأ في تهيئة Firebase:", error);
+                document.getElementById('authStatus').textContent = "خطأ في تهيئة Firebase. تحقق من إعداداتك.";
+            }
+        }
+
+        //-----------------------------------------
+        // 2. منطق لوحة الرسم (Canvas)
+        //-----------------------------------------
+
+        const canvas = document.getElementById('drawingCanvas');
+        const ctx = canvas.getContext('2d');
+        const colorPicker = document.getElementById('colorPicker');
+        const lineWidthInput = document.getElementById('lineWidth');
+        const clearCanvasButton = document.getElementById('clearCanvas');
+        const submitDrawingButton = document.getElementById('submitDrawing');
+        
+        let isDrawing = false;
+        let lastX = 0;
+        let lastY = 0;
+
+        // دالة لإعداد حجم اللوحة بشكل متجاوب
+        function setupCanvas() {
+            // استخدام CSS لتعيين العرض والارتفاع المتجاوبين
+            const rect = canvas.getBoundingClientRect();
+            canvas.width = rect.width;
+            canvas.height = rect.height;
+            ctx.lineCap = 'round';
+            ctx.lineJoin = 'round';
+            ctx.lineWidth = lineWidthInput.value;
+            ctx.strokeStyle = colorPicker.value;
+        }
+
+        // معالجة بدء الرسم (سواء بالماوس أو اللمس)
+        function startDrawing(e) {
+            e.preventDefault();
+            isDrawing = true;
+            [lastX, lastY] = getCoordinates(e);
+            ctx.beginPath();
+            ctx.moveTo(lastX, lastY);
+        }
+
+        // معالجة الرسم (سواء بالماوس أو اللمس)
+        function draw(e) {
+            if (!isDrawing) return;
+            e.preventDefault();
+            const [x, y] = getCoordinates(e);
+
+            ctx.lineTo(x, y);
+            ctx.stroke();
+            [lastX, lastY] = [x, y];
+        }
+
+        // دالة الحصول على الإحداثيات الموحدة للماوس واللمس
+        function getCoordinates(e) {
+            const rect = canvas.getBoundingClientRect();
+            let clientX, clientY;
+
+            if (e.touches && e.touches.length > 0) {
+                // حدث اللمس
+                clientX = e.touches[0].clientX;
+                clientY = e.touches[0].clientY;
+            } else {
+                // حدث الماوس
+                clientX = e.clientX;
+                clientY = e.clientY;
+            }
+            
+            return [clientX - rect.left, clientY - rect.top];
+        }
+
+        // معالجة إنهاء الرسم
+        function stopDrawing() {
+            isDrawing = false;
+            ctx.closePath();
+        }
+        
+        // مسح اللوحة
+        clearCanvasButton.addEventListener('click', () => {
+            ctx.clearRect(0, 0, canvas.width, canvas.height);
+        });
+
+        // تغيير اللون
+        colorPicker.addEventListener('input', () => {
+            ctx.strokeStyle = colorPicker.value;
+        });
+
+        // تغيير حجم القلم
+        lineWidthInput.addEventListener('input', () => {
+            ctx.lineWidth = lineWidthInput.value;
+        });
+
+        // إضافة معالجات أحداث الماوس
+        canvas.addEventListener('mousedown', startDrawing);
+        canvas.addEventListener('mousemove', draw);
+        canvas.addEventListener('mouseup', stopDrawing);
+        canvas.addEventListener('mouseout', stopDrawing);
+
+        // إضافة معالجات أحداث اللمس
+        canvas.addEventListener('touchstart', startDrawing);
+        canvas.addEventListener('touchmove', draw);
+        canvas.addEventListener('touchend', stopDrawing);
+
+        // إعادة ضبط اللوحة عند تغيير حجم النافذة
+        window.addEventListener('resize', setupCanvas);
+        window.addEventListener('load', setupCanvas);
+        
+        //-----------------------------------------
+        // 3.1. دالة عامة لمكالمات Gemini API مع التراجع الأُسّي (Exponential Backoff)
+        //-----------------------------------------
+
+        // دالة للمحاولة مع التراجع الأُسّي (Exponential Backoff) لنموذج المحتوى وTTS
+        async function callGeminiApiWithRetry(payload, apiUrl, retries = 3, useSearch = false) {
+            
+            // إضافة أداة البحث إذا طلبت
+            if (useSearch) {
+                payload.tools = [{ "google_search": {} }];
+            }
+
+            for (let i = 0; i < retries; i++) {
+                try {
+                    const response = await fetch(apiUrl, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+                    
+                    if (!response.ok) {
+                        throw new Error(`API returned status ${response.status}`);
+                    }
+
+                    const result = await response.json();
+                    
+                    // معالجة استجابة TTS (صوت)
+                    if (apiUrl === geminiTtsApiUrl) {
+                         const part = result?.candidates?.[0]?.content?.parts?.[0];
+                         const audioData = part?.inlineData?.data;
+                         const mimeType = part?.inlineData?.mimeType;
+
+                         if (audioData && mimeType && mimeType.startsWith("audio/")) {
+                            const match = mimeType.match(/rate=(\d+)/);
+                            const sampleRate = match ? parseInt(match[1], 10) : 16000;
+                            const pcmData = base64ToArrayBuffer(audioData);
+                            const pcm16 = new Int16Array(pcmData); // API returns signed PCM16
+                            const wavBlob = pcmToWav(pcm16, sampleRate);
+                            return { audioUrl: URL.createObjectURL(wavBlob) };
+                         }
+                         throw new Error("Invalid TTS response structure or missing audio data.");
+                    }
+                    
+                    // معالجة استجابة المحتوى (Text/Multimodal/Grounding)
+                    const candidate = result.candidates?.[0];
+                    if (!candidate || !candidate.content?.parts?.[0]?.text) {
+                        throw new Error("Invalid response structure or missing text from Gemini API");
+                    }
+
+                    const text = candidate.content.parts[0].text;
+                    let sources = [];
+
+                    // استخراج مصادر المعلومات في حال استخدام البحث
+                    const groundingMetadata = candidate.groundingMetadata;
+                    if (useSearch && groundingMetadata && groundingMetadata.groundingAttributions) {
+                        sources = groundingMetadata.groundingAttributions
+                            .map(attribution => ({
+                                uri: attribution.web?.uri,
+                                title: attribution.web?.title,
+                            }))
+                            .filter(source => source.uri && source.title); // التأكد من صحة المصادر
+                    }
+
+                    // تنظيف النص من علامات الاقتباس أو المسافات البيضاء
+                    const cleanedText = text.trim().replace(/^['"\s]*|['"\s]*$/g, ''); 
+                    
+                    return { text: cleanedText, sources: sources };
+
+                } catch (error) {
+                    console.warn(`Gemini API call failed (Attempt ${i + 1}/${retries}). Retrying...`, error);
+                    if (i < retries - 1) {
+                        const delay = Math.pow(2, i) * 1000;
+                        await new Promise(resolve => setTimeout(resolve, delay));
+                    } else {
+                        throw error;
+                    }
+                }
+            }
+        }
+        
+        // دالة للمحاولة مع التراجع الأُسّي (Exponential Backoff) لنموذج Imagen (توليد الصور)
+        async function callImagenApi(prompt, retries = 3) {
+            const payload = { 
+                instances: [{ prompt: prompt }], 
+                parameters: { "sampleCount": 1 } 
+            };
+
+            for (let i = 0; i < retries; i++) {
+                try {
+                    const response = await fetch(geminiImageApiUrl, {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(payload)
+                    });
+
+                    if (!response.ok) {
+                        throw new Error(`Imagen API returned status ${response.status}`);
+                    }
+
+                    const result = await response.json();
+                    const base64Data = result?.predictions?.[0]?.bytesBase64Encoded;
+
+                    if (base64Data) {
+                        return `data:image/png;base64,${base64Data}`;
+                    }
+                    throw new Error("Invalid Imagen response structure or missing image data.");
+
+                } catch (error) {
+                    console.warn(`Imagen API call failed (Attempt ${i + 1}/${retries}). Retrying...`, error);
+                    if (i < retries - 1) {
+                        const delay = Math.pow(2, i) * 1000;
+                        await new Promise(resolve => setTimeout(resolve, delay));
+                    } else {
+                        throw error;
+                    }
+                }
+            }
+        }
+
+        // دالة مساعدة لاستخراج Base64 من Data URL
+        function extractBase64(dataUrl) {
+            if (!dataUrl || !dataUrl.includes(',')) return '';
+            return dataUrl.split(',')[1];
+        }
+
+
+        //-----------------------------------------
+        // 3.2. منطق توليد فكرة الرسم (Gemini AI Feature 1)
+        //-----------------------------------------
+        const generatePromptButton = document.getElementById('generatePrompt');
+        const promptOutput = document.getElementById('promptOutput');
+
+        generatePromptButton.addEventListener('click', async () => {
+            generatePromptButton.disabled = true;
+            promptOutput.innerHTML = '<span class="loader mx-auto"></span> جاري توليد فكرة...';
+            
+            const systemPrompt = "Act as a creative game master. Your task is to generate a single, unique, fun, and challenging noun or short phrase (max 3 words) suitable for an online drawing game, like Pictionary. The concept should be drawable. Respond only with the prompt text and nothing else.";
+            const userQuery = "Generate a drawing prompt in Arabic.";
+
+            const payload = {
+                contents: [{ parts: [{ text: userQuery }] }],
+                systemInstruction: { parts: [{ text: systemPrompt }] },
+            };
+
+            try {
+                const { text: prompt } = await callGeminiApiWithRetry(payload, geminiContentApiUrl);
+                
+                document.getElementById('drawingDescription').value = prompt;
+                promptOutput.textContent = `الفكرة المولّدة: "${prompt}"`;
+                
+            } catch (error) {
+                console.error("خطأ في توليد الفكرة من Gemini:", error);
+                promptOutput.textContent = 'فشل التوليد. حاول مرة أخرى.';
+            } finally {
+                generatePromptButton.disabled = false;
+            }
+        });
+
+
+        //-----------------------------------------
+        // 3. منطق إرسال الرسم إلى Firestore
+        //-----------------------------------------
+
+        const drawCollectionRef = (db) => collection(db, `/artifacts/${appId}/public/data/drawings`);
+        const resultsCollectionRef = (db) => collection(db, `/artifacts/${appId}/public/data/results`);
+        
+        submitDrawingButton.addEventListener('click', async () => {
+            if (!userId) {
+                console.error("خطأ: يجب تسجيل الدخول للإرسال.");
+                return;
+            }
+
+            submitDrawingButton.disabled = true;
+            submitDrawingButton.textContent = 'جاري الإرسال...';
+            
+            const drawingDataURL = canvas.toDataURL('image/png');
+            const description = document.getElementById('drawingDescription').value || 'رسم بدون وصف';
+            
+            try {
+                // حفظ الرسم كوثيقة جديدة في Firestore
+                const newDocRef = doc(drawCollectionRef(db));
+                await setDoc(newDocRef, {
+                    drawerId: userId,
+                    description: description,
+                    dataUrl: drawingDataURL, 
+                    votes: 0,
+                    voters: [], 
+                    createdAt: Date.now()
+                });
+                
+                // إضافة أو تحديث نتيجة اللاعب (إذا كان هذا هو الرسم الأخير)
+                const resultRef = doc(resultsCollectionRef(db), userId);
+                await setDoc(resultRef, {
+                    userId: userId,
+                    totalVotes: 0, 
+                    latestDrawingId: newDocRef.id,
+                    lastDrawnAt: Date.now()
+                }, { merge: true }); 
+
+                console.log("تم إرسال الرسم بنجاح بمعرف:", newDocRef.id);
+                // إظهار رسالة نجاح بسيطة
+                submitDrawingButton.textContent = 'تم الإرسال بنجاح! 🎉';
+                document.getElementById('drawingDescription').value = ''; 
+                promptOutput.textContent = 'اضغط لتوليد فكرة!'; 
+                setTimeout(() => {
+                    submitDrawingButton.textContent = 'إرسال الرسم للمنافسة';
+                    submitDrawingButton.disabled = false;
+                    ctx.clearRect(0, 0, canvas.width, canvas.height); // مسح اللوحة بعد الإرسال
+                }, 3000);
+            } catch (error) {
+                console.error("خطأ في إرسال الرسم:", error);
+                submitDrawingButton.textContent = 'فشل الإرسال 😢';
+                setTimeout(() => {
+                    submitDrawingButton.textContent = 'إرسال الرسم للمنافسة';
+                    submitDrawingButton.disabled = false;
+                }, 3000);
+            }
+        });
+
+        //-----------------------------------------
+        // 4. منطق التصويت والاستماع للرسومات
+        //-----------------------------------------
+        
+        const votingContent = document.getElementById('votingContent');
+        const voteButton = document.getElementById('voteButton');
+        const latestDrawingContainer = document.getElementById('latestDrawing');
+        const critiqueButton = document.getElementById('critiqueButton');
+        const critiqueArea = document.getElementById('critiqueArea');
+        const critiqueText = document.getElementById('critiqueText');
+        const readCritiqueButton = document.getElementById('readCritiqueButton');
+        const deepDiveButton = document.getElementById('deepDiveButton');
+        const deepDiveArea = document.getElementById('deepDiveArea');
+        const deepDiveText = document.getElementById('deepDiveText');
+        const deepDiveSources = document.getElementById('deepDiveSources');
+        const visualInterpretationButton = document.getElementById('visualInterpretationButton');
+        const visualInterpretationArea = document.getElementById('visualInterpretationArea');
+        const visualInterpretationImageContainer = document.getElementById('visualInterpretationImageContainer');
+        const nameArtButton = document.getElementById('nameArtButton');
+        const newTitleArea = document.getElementById('newTitleArea');
+        const newTitleText = document.getElementById('newTitleText');
+
+        
+        // الاستماع لأحدث رسم في قاعدة البيانات
+        function listenForLatestDrawing() {
+            // الاستعلام: جلب الوثائق
+            const q = query(drawCollectionRef(db));
+            
+            onSnapshot(q, (snapshot) => {
+                let latestDoc = null;
+                let latestTimestamp = 0;
+                
+                // الفرز محليًا للعثور على الأحدث
+                snapshot.docs.forEach(doc => {
+                    const data = doc.data();
+                    if (data.createdAt > latestTimestamp) {
+                        latestTimestamp = data.createdAt;
+                        latestDoc = doc;
+                    }
+                });
+
+                // إعادة تعيين مناطق النقد والشرح المعمق والتفسير البصري والتسمية
+                critiqueArea.classList.add('hidden');
+                critiqueText.textContent = '...';
+                currentCritiqueText = ''; // مسح النقد المخزن
+                readCritiqueButton.disabled = true;
+                readCritiqueButton.textContent = '🔊 قراءة النقد بصوت (TTS)';
+                
+                deepDiveArea.classList.add('hidden');
+                deepDiveText.textContent = '...';
+                deepDiveSources.innerHTML = '';
+
+                visualInterpretationArea.classList.add('hidden');
+                visualInterpretationImageContainer.innerHTML = '';
+
+                newTitleArea.classList.add('hidden'); // إخفاء منطقة التسمية الجديدة
+                newTitleText.textContent = '...';
+                
+                if (latestDoc) {
+                    const data = latestDoc.data();
+                    
+                    if (latestDrawingId === latestDoc.id && hasVoted) {
+                        return;
+                    }
+                    
+                    latestDrawingId = latestDoc.id;
+                    currentDrawingDataUrl = data.dataUrl; // تخزين URL الرسم الجديد
+                    hasVoted = (data.voters || []).includes(userId); 
+
+                    // عرض الرسم
+                    latestDrawingContainer.innerHTML = `
+                        <p class="text-sm text-gray-700 mb-2">رسم بواسطة: <span class="font-mono text-blue-500">${data.drawerId}</span></p>
+                        <p class="text-lg font-bold text-gray-800 mb-3" id="currentDrawingDescription">${data.description}</p>
+                        <img src="${data.dataUrl}" alt="Latest Drawing" class="w-full h-auto rounded-lg shadow-lg border-4 border-purple-300 mx-auto max-w-sm">
+                    `;
+                    
+                    // إعداد بيانات النقد والتحليل على الأزرار
+                    critiqueButton.setAttribute('data-url', data.dataUrl);
+                    critiqueButton.setAttribute('data-description', data.description);
+                    deepDiveButton.setAttribute('data-description', data.description);
+                    nameArtButton.setAttribute('data-url', data.dataUrl);
+                    nameArtButton.setAttribute('data-description', data.description);
+
+                    // تفعيل/تعطيل الأزرار بناءً على حالة اللاعب
+                    if (data.drawerId === userId) {
+                        voteButton.disabled = true;
+                        voteButton.textContent = 'لا يمكنك التصويت على رسمك!';
+                        critiqueButton.disabled = true;
+                        deepDiveButton.disabled = true;
+                        visualInterpretationButton.disabled = true;
+                        nameArtButton.disabled = true;
+                    } else if (hasVoted) {
+                        voteButton.disabled = true;
+                        voteButton.textContent = 'لقد صوتت بالفعل على هذا الرسم!';
+                        critiqueButton.disabled = false; 
+                        deepDiveButton.disabled = false;
+                        visualInterpretationButton.disabled = false;
+                        nameArtButton.disabled = false;
+                    }
+                    else {
+                        voteButton.disabled = false;
+                        voteButton.textContent = 'التصويت للرسم أعلاه';
+                        critiqueButton.disabled = false;
+                        deepDiveButton.disabled = false;
+                        visualInterpretationButton.disabled = false;
+                        nameArtButton.disabled = false;
+                    }
+                    
+                } else {
+                    latestDrawingContainer.innerHTML = '<p class="text-gray-500 mb-3">انتظر رسماً جديداً من أي لاعب...</p>';
+                    voteButton.disabled = true;
+                    critiqueButton.disabled = true;
+                    deepDiveButton.disabled = true;
+                    visualInterpretationButton.disabled = true;
+                    nameArtButton.disabled = true;
+                    voteButton.textContent = 'التصويت للرسم أعلاه';
+                }
+            });
+        }
+        
+        //-----------------------------------------
+        // 4.1. منطق نقد الرسم (Gemini AI Feature 2 - Multimodal)
+        //-----------------------------------------
+
+        critiqueButton.addEventListener('click', async () => {
+            if (!latestDrawingId || !userId) return;
+
+            const drawingDataUrl = critiqueButton.getAttribute('data-url');
+            const description = critiqueButton.getAttribute('data-description');
+            
+            if (!drawingDataUrl || !description) {
+                critiqueText.textContent = 'لا يمكن تحليل الرسم. البيانات غير مكتملة.';
+                critiqueArea.classList.remove('hidden');
+                readCritiqueButton.disabled = true;
+                visualInterpretationButton.disabled = true;
+                return;
+            }
+
+            const base64Image = extractBase64(drawingDataUrl);
+
+            critiqueButton.disabled = true;
+            critiqueButton.innerHTML = '<span class="loader w-4 h-4 mr-2"></span> جاري التحليل...';
+            critiqueArea.classList.add('hidden');
+            readCritiqueButton.disabled = true;
+            visualInterpretationButton.disabled = true; 
+            
+            try {
+                // إعداد موجه النظام (System Prompt) للناقد الفني
+                const systemPrompt = "Act as a playful, slightly sarcastic art critic specializing in Pictionary. You must provide a short, one-paragraph critique (max 50 words) of the drawing, focusing on how well it visually captures the intended subject. Use a humorous and encouraging tone. Respond only with the critique text.";
+                
+                const userQuery = `Critique this drawing. The intended subject/prompt was: ${description}`;
+
+                const payload = {
+                    contents: [
+                        {
+                            role: "user",
+                            parts: [
+                                { text: userQuery },
+                                {
+                                    inlineData: {
+                                        mimeType: "image/png",
+                                        data: base64Image
+                                    }
+                                }
+                            ]
+                        }
+                    ],
+                    systemInstruction: { parts: [{ text: systemPrompt }] },
+                };
+                
+                const { text: critique } = await callGeminiApiWithRetry(payload, geminiContentApiUrl);
+                
+                critiqueText.innerHTML = `**نقد الناقد الفني:** ${critique}`;
+                currentCritiqueText = critique; // تخزين النقد لاستخدامه في توليد الصورة
+                critiqueArea.classList.remove('hidden');
+                readCritiqueButton.disabled = false; // تفعيل زر القراءة بعد الحصول على النقد
+                visualInterpretationButton.disabled = false; // تفعيل زر التفسير البصري
+
+            } catch (error) {
+                console.error("خطأ في تحليل الرسم من Gemini:", error);
+                critiqueText.textContent = 'فشل تحليل الرسم. حدث خطأ في الاتصال بالناقد الفني.';
+                critiqueArea.classList.remove('hidden');
+            } finally {
+                critiqueButton.disabled = false;
+                critiqueButton.innerHTML = '<span class="mr-2">✨</span> تحليل الرسم (Gemini AI)';
+            }
+        });
+
+        //-----------------------------------------
+        // 4.5. منطق تسمية العمل الفني (Gemini AI Feature 6 - Multimodal)
+        //-----------------------------------------
+        nameArtButton.addEventListener('click', async () => {
+            if (!latestDrawingId || !userId) return;
+
+            const drawingDataUrl = nameArtButton.getAttribute('data-url');
+            const description = nameArtButton.getAttribute('data-description');
+            
+            if (!drawingDataUrl || !description) {
+                newTitleText.textContent = 'لا يمكن تسمية العمل الفني. البيانات غير مكتملة.';
+                newTitleArea.classList.remove('hidden');
+                return;
+            }
+
+            const base64Image = extractBase64(drawingDataUrl);
+
+            nameArtButton.disabled = true;
+            nameArtButton.innerHTML = '<span class="loader w-4 h-4 mr-2"></span> جاري التسمية...';
+            newTitleArea.classList.add('hidden');
+            
+            try {
+                // إعداد موجه النظام (System Prompt) للقيّم الفني الدرامي
+                const systemPrompt = "Act as a dramatic, poetic art curator. Based on the drawing and its original description, generate a single, highly evocative and poetic title for the artwork. The title must be in Arabic and suitable for a museum plaque. Respond only with the title text and nothing else.";
+                
+                const userQuery = `Original subject/description: ${description}. Generate a new, artistic title for this image.`;
+
+                const payload = {
+                    contents: [
+                        {
+                            role: "user",
+                            parts: [
+                                { text: userQuery },
+                                {
+                                    inlineData: {
+                                        mimeType: "image/png",
+                                        data: base64Image
+                                    }
+                                }
+                            ]
+                        }
+                    ],
+                    systemInstruction: { parts: [{ text: systemPrompt }] },
+                };
+                
+                const { text: newTitle } = await callGeminiApiWithRetry(payload, geminiContentApiUrl);
+                
+                newTitleText.innerHTML = `**عنوان متحفي مقترح:** <span class="text-lg">${newTitle}</span>`;
+                newTitleArea.classList.remove('hidden');
+
+            } catch (error) {
+                console.error("خطأ في تسمية العمل الفني من Gemini:", error);
+                newTitleText.textContent = 'فشل في تسمية العمل. حدث خطأ في الاتصال بالقيّم الفني.';
+                newTitleArea.classList.remove('hidden');
+            } finally {
+                nameArtButton.disabled = false;
+                nameArtButton.innerHTML = '<span class="mr-2">✨</span> تسمية العمل الفني (Gemini AI)';
+            }
+        });
+
+
+        //-----------------------------------------
+        // 4.3. منطق القراءة الصوتية (Gemini AI Feature 4 - TTS)
+        //-----------------------------------------
+        
+        readCritiqueButton.addEventListener('click', async () => {
+            const textToRead = critiqueText.textContent.replace('**نقد الناقد الفني:**', '').trim();
+            
+            if (!textToRead || textToRead === '...') {
+                console.warn('لا يوجد نص لقراءته.');
+                return;
+            }
+
+            readCritiqueButton.disabled = true;
+            readCritiqueButton.innerHTML = '<span class="loader w-4 h-4 mr-2"></span> جاري التحويل...';
+            
+            const payload = {
+                contents: [{
+                    parts: [{ text: textToRead }]
+                }],
+                generationConfig: {
+                    responseModalities: ["AUDIO"],
+                    speechConfig: {
+                        voiceConfig: {
+                            prebuiltVoiceConfig: { voiceName: "Kore" } // صوت ثابت ومناسب
+                        }
+                    }
+                },
+            };
+
+            try {
+                // استخدام geminiTtsApiUrl هنا
+                const { audioUrl } = await callGeminiApiWithRetry(payload, geminiTtsApiUrl);
+                
+                const audio = new Audio(audioUrl);
+                audio.play();
+
+                audio.onended = () => {
+                    readCritiqueButton.disabled = false;
+                    readCritiqueButton.innerHTML = '🔊 قراءة النقد بصوت (TTS)';
+                };
+                
+            } catch (error) {
+                console.error("خطأ في توليد الصوت TTS:", error);
+                readCritiqueButton.innerHTML = '❌ فشل القراءة';
+                // إعادة تمكين الزر بعد فترة قصيرة
+                setTimeout(() => {
+                    readCritiqueButton.disabled = false;
+                    readCritiqueButton.innerHTML = '🔊 قراءة النقد بصوت (TTS)';
+                }, 3000);
+            }
+        });
+        
+        //-----------------------------------------
+        // 4.4. منطق التفسير البصري للنقد (Gemini AI Feature 5 - Imagen)
+        //-----------------------------------------
+
+        visualInterpretationButton.addEventListener('click', async () => {
+            // يتطلب نقدًا تم إنشاؤه ليعمل بشكل صحيح
+            const critique = currentCritiqueText;
+            const description = critiqueButton.getAttribute('data-description');
+
+            if (!critique || critique === '...' || !description || description === 'رسم بدون وصف') {
+                // إظهار رسالة إذا لم يتم تشغيل النقد بعد
+                visualInterpretationImageContainer.innerHTML = '<p class="text-fuchsia-800">يرجى أولاً تشغيل زر "تحليل الرسم" للحصول على النقد الفني.</p>';
+                visualInterpretationArea.classList.remove('hidden');
+                return;
+            }
+
+            visualInterpretationButton.disabled = true;
+            visualInterpretationButton.innerHTML = '<span class="loader w-4 h-4 mr-2"></span> جاري التوليد...';
+            visualInterpretationImageContainer.innerHTML = '<div class="loader"></div>';
+            visualInterpretationArea.classList.remove('hidden');
+            
+            try {
+                // إنشاء موجه يجمع بين الوصف (ما هو) والنقد (الأسلوب/الشعور)
+                const imagePrompt = `A surreal, playful, artistic interpretation of the subject: "${description}", rendered in a style that reflects the critique: "${critique}". Focus on artistic texture and whimsical elements.`;
+                
+                const imageUrl = await callImagenApi(imagePrompt);
+                
+                visualInterpretationImageContainer.innerHTML = `<img src="${imageUrl}" alt="AI Visual Interpretation" class="max-w-xs md:max-w-sm rounded-lg shadow-xl mx-auto border-4 border-fuchsia-400">`;
+
+            } catch (error) {
+                console.error("خطأ في توليد الصورة من Imagen:", error);
+                visualInterpretationImageContainer.innerHTML = '<p class="text-red-600">فشل التفسير البصري. حدث خطأ في خدمة الصورة.</p>';
+            } finally {
+                visualInterpretationButton.disabled = false;
+                visualInterpretationButton.innerHTML = '<span class="mr-2">✨</span> تفسير بصري للنقد (Gemini Image)';
+            }
+        });
+
+
+        //-----------------------------------------
+        // 4.2. منطق الشرح المعمق (Gemini AI Feature 3 - Grounding)
+        //-----------------------------------------
+        
+        deepDiveButton.addEventListener('click', async () => {
+            if (!latestDrawingId || !userId) return;
+
+            const description = deepDiveButton.getAttribute('data-description');
+            
+            if (!description || description === 'رسم بدون وصف') {
+                deepDiveText.textContent = 'لا يوجد وصف محدد للرسم يمكن البحث عنه.';
+                deepDiveArea.classList.remove('hidden');
+                return;
+            }
+
+            deepDiveButton.disabled = true;
+            deepDiveButton.innerHTML = '<span class="loader w-4 h-4 mr-2"></span> جاري البحث والشرح...';
+            deepDiveArea.classList.add('hidden');
+            deepDiveSources.innerHTML = '';
+            
+            try {
+                // إعداد موجه النظام (System Prompt) للشرح المعمق
+                const systemPrompt = "Act as an informative, concise encyclopedia assistant. Provide a brief, single-paragraph explanation (max 70 words) about the subject provided by the user. Ensure the explanation is based on grounded search results. Respond only with the explanation text.";
+                
+                const userQuery = `What is "${description}"? Explain it concisely in Arabic.`;
+
+                const payload = {
+                    contents: [{ parts: [{ text: userQuery }] }],
+                    systemInstruction: { parts: [{ text: systemPrompt }] },
+                };
+                
+                // استخدام useSearch: true لتفعيل بحث Google
+                const { text: explanation, sources } = await callGeminiApiWithRetry(payload, geminiContentApiUrl, 3, true);
+                
+                deepDiveText.innerHTML = `**مختصر الفكرة:** ${explanation}`;
+                
+                if (sources.length > 0) {
+                    deepDiveSources.innerHTML = `<p class="font-bold mt-2">المصادر:</p>
+                        ${sources.map(s => 
+                            `<a href="${s.uri}" target="_blank" class="text-blue-500 hover:text-blue-700 truncate block">${s.title}</a>`
+                        ).join('')}`;
+                } else {
+                    deepDiveSources.innerHTML = '<p class="mt-2">لم يتم العثور على مصادر إضافية.</p>';
+                }
+                
+                deepDiveArea.classList.remove('hidden');
+
+            } catch (error) {
+                console.error("خطأ في الشرح المعمق من Gemini:", error);
+                deepDiveText.textContent = 'فشل الشرح المعمق. حدث خطأ أثناء البحث.';
+                deepDiveArea.classList.remove('hidden');
+            } finally {
+                deepDiveButton.disabled = false;
+                deepDiveButton.innerHTML = '<span class="mr-2">✨</span> شرح فكرة الرسم (Gemini AI)';
+            }
+        });
+
+
+        // منطق التصويت
+        voteButton.addEventListener('click', async () => {
+            if (!latestDrawingId || hasVoted || !userId) return;
+
+            const drawingRef = doc(drawCollectionRef(db), latestDrawingId);
+            
+            voteButton.disabled = true;
+            voteButton.textContent = 'جاري تسجيل التصويت...';
+
+            try {
+                // 1. جلب المستند الحالي لضمان تحديث قائمة المصوتين (Voters)
+                const latestDocSnapshot = await getDoc(drawingRef);
+                const data = latestDocSnapshot.data();
+                const currentVoters = data.voters || [];
+                const drawerId = data.drawerId;
+                
+                // التأكد مرة أخرى أن اللاعب لم يصوت (مهم لمنع السباق)
+                if (currentVoters.includes(userId)) {
+                    voteButton.textContent = 'لقد صوتت بالفعل على هذا الرسم!';
+                    hasVoted = true;
+                    return;
+                }
+
+                // 2. زيادة عداد الأصوات في وثيقة الرسم وإضافة المستخدم إلى قائمة المصوتين
+                await updateDoc(drawingRef, {
+                    votes: increment(1),
+                    voters: [...currentVoters, userId]
+                });
+                
+                // 3. تحديث مجموع الأصوات الكلي في وثيقة النتائج للاعب الرسام
+                const resultRef = doc(resultsCollectionRef(db), drawerId);
+                
+                await setDoc(resultRef, {
+                    totalVotes: increment(1)
+                }, { merge: true }); // تحديث باستخدام دالة increment
+
+                hasVoted = true;
+                console.log(`تم التصويت بنجاح على الرسم ${latestDrawingId}`);
+                voteButton.textContent = 'تم التصويت! شكراً لك. ✅';
+            } catch (error) {
+                console.error("خطأ في تسجيل التصويت:", error);
+                voteButton.disabled = false;
+                voteButton.textContent = 'فشل التصويت ❌';
+            }
+        });
+
+        //-----------------------------------------
+        // 5. منطق عرض النتائج وإدارة اللعبة
+        //-----------------------------------------
+
+        const resultsList = document.getElementById('resultsList');
+        const resetGameButton = document.getElementById('resetGameButton');
+        
+        // الاستماع لنتائج التصويت
+        function listenForResults() {
+            const q = query(resultsCollectionRef(db));
+            
+            onSnapshot(q, (snapshot) => {
+                let results = [];
+                snapshot.forEach(doc => {
+                    results.push(doc.data());
+                });
+
+                // فرز النتائج تنازلياً حسب مجموع الأصوات
+                results.sort((a, b) => b.totalVotes - a.totalVotes);
+
+                if (results.length === 0) {
+                    resultsList.innerHTML = '<p class="text-gray-500">لا توجد نتائج بعد. ابدأوا بالرسم!</p>';
+                    return;
+                }
+                
+                // عرض النتائج
+                resultsList.innerHTML = results.map((result, index) => `
+                    <div class="flex justify-between items-center p-3 bg-white rounded-lg shadow-sm border-r-4 ${index === 0 ? 'border-yellow-500 font-bold' : 'border-gray-200'}">
+                        <span class="text-xl w-8 text-center">${index + 1}</span>
+                        <span class="font-mono text-sm text-gray-700 flex-grow mx-4">${result.userId}</span>
+                        <span class="text-2xl text-red-600 font-extrabold">${result.totalVotes}</span>
+                        <span class="text-sm text-gray-500 mr-2">صوت</span>
+                    </div>
+                `).join('');
+            });
+        }
+        
+        // إعادة تعيين اللعبة بالكامل (للمشرف/المستخدم الأول فقط)
+        resetGameButton.addEventListener('click', async () => {
+            // استبدال confirm بـ نافذة إشعارات مخصصة في تطبيق حقيقي
+            if (!confirm('هل أنت متأكد من إعادة تعيين اللعبة بالكامل؟ هذا سيحذف كل الرسومات والنتائج!')) {
+                return;
+            }
+            
+            resetGameButton.disabled = true;
+            resetGameButton.textContent = 'جاري الحذف...';
+            
+            try {
+                // حذف كل وثائق الرسومات
+                const drawingsSnapshot = await getDocs(drawCollectionRef(db));
+                // استخدام Promise.all لضمان إكمال جميع عمليات الحذف
+                await Promise.all(drawingsSnapshot.docs.map(doc => deleteDoc(doc.ref)));
+                
+                // حذف كل وثائق النتائج
+                const resultsSnapshot = await getDocs(resultsCollectionRef(db));
+                await Promise.all(resultsSnapshot.docs.map(doc => deleteDoc(doc.ref)));
+
+                resetGameButton.textContent = 'تم إعادة التعيين بنجاح! 🎉';
+            } catch (error) {
+                console.error("خطأ في إعادة تعيين اللعبة:", error);
+                resetGameButton.textContent = 'فشل إعادة التعيين 😢';
+            } finally {
+                setTimeout(() => {
+                    resetGameButton.disabled = false;
+                    resetGameButton.textContent = 'إعادة تعيين اللعبة (للمشرف فقط)';
+                }, 3000);
+            }
+        });
+        
+
+        // بدء تهيئة التطبيق عند تحميل النافذة
+        window.addEventListener('load', initFirebase);
+    </script>
+</body>
+</html>
